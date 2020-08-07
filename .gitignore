@@ -3,3 +3,4 @@ build
 result.log
 main.spec
 .idea
+__pycache__
