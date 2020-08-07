@@ -55,4 +55,4 @@ else:
         stdout.write(bytes(f'File {asmfile} errored: {str(e)}\n\n\n', encoding='utf-8'))
         print(f'File {asmfile} errored: {str(e)}')
 stdout.close()
-input(f'{"Conversion details in log file" if verbose else "Silence mode was used"}\nPress any key to exit\n')
+input(f'{"Conversion details in log file" if verbose else "Silence mode was used"}\nPress enter to exit\n')
