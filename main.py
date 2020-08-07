@@ -50,7 +50,7 @@ if zipfile.is_zipfile(asmfile):
 else:
     try:
         print(f'Processing file {asmfile}')
-        converter.convert(asmfile, opt, stdout)
+        converter.convert(asmfile, opt, verbose, stdout)
     except Exception as e:
         stdout.write(bytes(f'File {asmfile} errored: {str(e)}\n\n\n', encoding='utf-8'))
         print(f'File {asmfile} errored: {str(e)}')

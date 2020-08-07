@@ -8,8 +8,6 @@ bwram_defines = """macro define_bwram(addr, bwram)
         !<addr> = $<addr>
     endif
 endmacro
-%define_bwram(7E0100, 400100) ; ends at 7E010A
-%define_bwram(7E0200, 400200) ; ends at 7E1FFF
 %define_bwram(7EC800, 40C800) ; ends at 7EFFFF
 %define_bwram(7F9A7B, 418800) ; ends at 7F9C7A
 %define_bwram(700000, 41C000) ; ends at 7007FF
@@ -49,8 +47,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                          5416, 5428, 5440, 5452, 5464, 5476, 5488, 5500, 5512, 5524, 5536, 5548, 5560, 5572, 5584, 5596,
                          5610, 5622, 5634, 5646, 5658, 5670, 5682, 5694, 5706, 5718, 5730, 5742, 5754, 5766, 6252, 6267,
                          6415, 6456, 8367872, 8150, 8162]
-    bwram_remapped_list = [(0x7E0100, 0x7E010A), (0x7E0200, 0x7E1FFF), (0x7EC800, 0x7EFFFF), (0x700000, 0x7007FF),
-                           (0x7FC800, 0x7FFFFF)]
+    bwram_remapped_list = [(0x7F9A7B, 0x7F9C7A), (0x7EC800, 0x7EFFFF), (0x700000, 0x7007FF), (0x7FC800, 0x7FFFFF)]
     tot_conversions = 0
     whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
@@ -87,9 +84,11 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             elif not in_comment and not in_data and og_word.startswith('$'):
                 splitted = og_word.split(',')
                 word = splitted.pop(0).replace('$', '')
+                if word.startswith('8') and len(word) == 6:
+                    word = word.replace('8', '0', 1)
                 try:
                     int(word, 16)
-                except ValueError as e:
+                except ValueError:
                     stdout.write(bytes(f'Couldn\'t convert {word} to integer on line {index}\n', encoding=encoding))
                     outfile.write(og_word + ' ')
                     continue
@@ -103,7 +102,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                     word = '!' + word
                 elif len(word) == 6 and (0x008000 <= int(word, 16) <= 0x0FFFFF):  # if rom, add !bank
                     converted = True
-                    word += '|!bank'
+                    word = '$' + word + '|!bank'
                 elif len(word) == 2:  # if direct page, ignore
                     pass
                 elif 0x0100 < int(word, 16) <= 0x1FFF:  # else, use |!addr
