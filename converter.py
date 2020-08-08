@@ -1,18 +1,25 @@
 import re
-import chardet
+from chardet.universaldetector import UniversalDetector
 
-bwram_defines = """macro define_bwram(addr, bwram)
+bwram_defines = """
+macro define_bwram(addr, bwram)
     if read1($00FFD5) == $23
         !<addr> = $<bwram>
     else
         !<addr> = $<addr>
     endif
 endmacro
-%define_bwram(7EC800, 40C800) ; ends at 7EFFFF
 %define_bwram(7F9A7B, 418800) ; ends at 7F9C7A
-%define_bwram(700000, 41C000) ; ends at 7007FF
 %define_bwram(700800, 41A000) ; ends at 7027FF
-%define_bwram(7FC800, 41C800) ; ends at 7FFFFF
+if read1($00FFD5) == $23
+    !map16_lo_by = $400000
+    !map16_hi_by = $410000
+    !save_mem = $41C000
+else
+    !map16_lo_by = $7E0000
+    !map16_hi_by = $7F0000
+    !save_mem = $700000
+endif
 """
 
 
@@ -22,9 +29,13 @@ def convert(asmfile, opt, verbose, stdout) -> None:
         with open(asmfile, 'r') as f:
             text = f.readlines()
     except Exception as e:
-        with open(asmfile, 'rb') as det:
-            rawdata = det.read()
-        encod = chardet.detect(rawdata)
+        detector = UniversalDetector()
+        for line in open(asmfile, 'rb'):
+            detector.feed(line)
+            if detector.done:
+                break
+        detector.close()
+        encod = detector.result
         if encod['confidence'] > 0.5:
             encoding = encod['encoding']
         else:
@@ -36,11 +47,11 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 text = f.readlines()
         except Exception as e:
             raise e             # propagate
-
+    bwram_define_needed = False
     outputfile = asmfile.replace('.asm', '_sa1.asm')
     outfile = open(outputfile, 'w', encoding=encoding)
     stdout.write(bytes(f'Processing file {asmfile}:\n', encoding=encoding))
-    outfile.write(bwram_defines)
+    outlines = []
     if opt:
         outfile.write('incsrc conv_defines.asm\n')
     special_addr_list = [8366864, 8366876, 8366888, 8366900, 8367006, 8366912, 8366924, 8366936, 8366948, 8367104,
@@ -48,11 +59,14 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                          5416, 5428, 5440, 5452, 5464, 5476, 5488, 5500, 5512, 5524, 5536, 5548, 5560, 5572, 5584, 5596,
                          5610, 5622, 5634, 5646, 5658, 5670, 5682, 5694, 5706, 5718, 5730, 5742, 5754, 5766, 6252, 6267,
                          6415, 6456, 8367872, 8150, 8162]
-    bwram_remapped_list = [(0x7F9A7B, 0x7F9C7A), (0x7EC800, 0x7EFFFF), (0x700000, 0x7007FF), (0x700800, 0x7027FF),
-                           (0x7FC800, 0x7FFFFF)]
+    bwram_remapped_list = [0x7F9A7B, 0x7027FF]          # Wiggler's segment buffer, Expansion area planned for SMW hacks
+    map16_lo_by = (0x7EC800, 0x7EFFFF)                # Map16 low byte plus Overworld related data.
+    map16_hi_by = (0x7FC800, 0x7FFFFF)                # Map16 high byte.
+    save_mem = (0x700000, 0x7007FF)                # Original save memory (2 kB big). Not everything is used
     tot_conversions = 0
     whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
+        outlines.append('')
         in_comment = False
         in_data = False
         words = line.rstrip().split()
@@ -71,7 +85,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             define = line[:line.find('=')].strip()
             def_patt = re.compile(rf'#{re.escape(define)},?[x|y]?\b')
             if re.findall(def_patt, whole_file):
-                outfile.write(line)
+                outlines[index-1] = line
                 continue
         for n_word, og_word in enumerate(words):
             converted = False
@@ -88,11 +102,17 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 addr_index = -1
                 comma_index = -1
                 add_dp = False
+                immediate_value = False
                 for i, word in enumerate(splitted):
                     if word.startswith('$'):
                         addr_index = i
                     elif word.startswith(','):
                         comma_index = i
+                    elif word.find('#') != -1:
+                        immediate_value = True
+                if immediate_value:
+                    outlines[index-1] += (spaces[n_word] + og_word)
+                    break
                 if addr_index == -1:
                     raise Exception('An unexpected error happened, please report to the author')
                 word = splitted[addr_index].replace('$', '')
@@ -106,12 +126,26 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                     int(word, 16)
                 except ValueError:
                     stdout.write(bytes(f'Couldn\'t convert {word} to integer on line {index}\n', encoding=encoding))
-                    outfile.write(og_word + ' ')
+                    outlines[index-1] += (spaces[n_word] + og_word)
                     continue
                 # check if it's a dumb bwram remapped address
                 bwram_word = word if len(word) == 6 else '7E'+word
-                if any([bwram_addr[0] <= int(bwram_word, 16) <= bwram_addr[1] for bwram_addr in bwram_remapped_list]):
+                bwram_word_int = int(bwram_word, 16)
+                if map16_lo_by[0] <= bwram_word_int <= map16_lo_by[1]:
                     converted = True
+                    bwram_define_needed = True
+                    word = f'${bwram_word}&$00FFFF|!map16_lo_by'
+                elif map16_hi_by[0] <= bwram_word_int <= map16_hi_by[1]:
+                    converted = True
+                    bwram_define_needed = True
+                    word = f'${bwram_word}&$00FFFF|!map16_hi_by'
+                elif save_mem[0] <= bwram_word_int <= save_mem[1]:
+                    converted = True
+                    bwram_define_needed = True
+                    word = f'${bwram_word}&$000FFF|!save_mem'
+                elif bwram_word_int in bwram_remapped_list:
+                    converted = True
+                    bwram_define_needed = True
                     word = '!' + bwram_word
                 elif int(word, 16) in special_addr_list:  # if special address, use define
                     converted = True
@@ -145,10 +179,12 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             if converted:
                 tot_conversions += 1
                 stdout.write(bytes(f'Conversion: {og_word} -> {to_insert}\n', encoding=encoding))
-                outfile.write(spaces[n_word] + to_insert)
+                outlines[index-1] += (spaces[n_word] + to_insert)
             else:
-                outfile.write(spaces[n_word] + og_word)
-        outfile.write('\n')
+                outlines[index-1] += (spaces[n_word] + og_word)
+    if bwram_define_needed:
+        outfile.write(bwram_defines)
+    outfile.write('\n'.join(outlines))
     outfile.close()
     if verbose:
         print(f'Processed file {asmfile}\nTotal conversions: {tot_conversions}')

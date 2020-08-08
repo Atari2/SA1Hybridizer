@@ -4,3 +4,5 @@ result.log
 main.spec
 .idea
 __pycache__
+*.asm
+!conv_defines.asm
