@@ -11,8 +11,11 @@ endmacro
 %define_bwram(7EC800, 40C800) ; ends at 7EFFFF
 %define_bwram(7F9A7B, 418800) ; ends at 7F9C7A
 %define_bwram(700000, 41C000) ; ends at 7007FF
+%define_bwram(700800, 41A000) ; ends at 7027FF
 %define_bwram(7FC800, 41C800) ; ends at 7FFFFF
 """
+
+# TODO : Finish fixing the goddamn parenthesis, also shit with |!dp and stuff
 
 
 def convert(asmfile, opt, verbose, stdout) -> None:
@@ -47,7 +50,8 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                          5416, 5428, 5440, 5452, 5464, 5476, 5488, 5500, 5512, 5524, 5536, 5548, 5560, 5572, 5584, 5596,
                          5610, 5622, 5634, 5646, 5658, 5670, 5682, 5694, 5706, 5718, 5730, 5742, 5754, 5766, 6252, 6267,
                          6415, 6456, 8367872, 8150, 8162]
-    bwram_remapped_list = [(0x7F9A7B, 0x7F9C7A), (0x7EC800, 0x7EFFFF), (0x700000, 0x7007FF), (0x7FC800, 0x7FFFFF)]
+    bwram_remapped_list = [(0x7F9A7B, 0x7F9C7A), (0x7EC800, 0x7EFFFF), (0x700000, 0x7007FF), (0x700800, 0x7027FF),
+                           (0x7FC800, 0x7FFFFF)]
     tot_conversions = 0
     whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
@@ -73,7 +77,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 continue
         for n_word, og_word in enumerate(words):
             converted = False
-            word = ''
+            to_insert = ''
             if og_word.startswith(';'):
                 in_comment = True
             elif og_word.startswith('db') or og_word.startswith('dw') or og_word.startswith('dl'):
@@ -81,9 +85,23 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             elif re.match(r'\$?.{1,6}[|]!?.+\b', og_word) and not in_comment and not in_data:
                 stdout.write(bytes(f'Possibly address {og_word} at line {index} was already hybrid.\n',
                              encoding=encoding))
-            elif not in_comment and not in_data and og_word.startswith('$'):
-                splitted = og_word.split(',')
-                word = splitted.pop(0).replace('$', '')
+            elif not in_comment and not in_data and re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
+                splitted = re.split(r'([\[\](),])', og_word)
+                addr_index = -1
+                comma_index = -1
+                add_dp = False
+                for i, word in enumerate(splitted):
+                    if word.startswith('$'):
+                        addr_index = i
+                    elif word.startswith(','):
+                        comma_index = i
+                if addr_index == -1:
+                    raise Exception('An unexpected error happened, please report to the author')
+                word = splitted[addr_index].replace('$', '')
+                if comma_index != -1:
+                    if len(word) == 4 and (splitted[comma_index+1] == 'y' or splitted[comma_index+1] == 'x')\
+                            and word[:2] == '00':
+                        add_dp = True
                 if word.startswith('8') and len(word) == 6:
                     word = word.replace('8', '0', 1)
                 try:
@@ -99,7 +117,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                     word = '!' + bwram_word
                 elif int(word, 16) in special_addr_list:  # if special address, use define
                     converted = True
-                    word = '!' + word
+                    word = '!' + (f'{int(word, 16):X}' if not add_dp else f'{int(word, 16):X}|!dp')
                 elif len(word) == 6 and (0x008000 <= int(word, 16) <= 0x0FFFFF):  # if rom, add !bank
                     converted = True
                     word = '$' + word + '|!bank'
@@ -121,12 +139,15 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                     else:
                         stdout.write(bytes(f'Warning: address ${int(word, 16):X} at line {index} '
                                            f'couldn\'t be converted!\n', encoding=encoding))
-                for sub in splitted:
-                    word = word + ',' + sub
+                for i, sub in enumerate(splitted):
+                    if i == addr_index:
+                        to_insert += word
+                    else:
+                        to_insert += sub
             if converted:
                 tot_conversions += 1
-                stdout.write(bytes(f'Conversion: {og_word} -> {word}\n', encoding=encoding))
-                outfile.write(spaces[n_word] + word)
+                stdout.write(bytes(f'Conversion: {og_word} -> {to_insert}\n', encoding=encoding))
+                outfile.write(spaces[n_word] + to_insert)
             else:
                 outfile.write(spaces[n_word] + og_word)
         outfile.write('\n')
