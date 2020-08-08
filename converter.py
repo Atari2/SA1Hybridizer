@@ -63,6 +63,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
     map16_lo_by = (0x7EC800, 0x7EFFFF)                # Map16 low byte plus Overworld related data.
     map16_hi_by = (0x7FC800, 0x7FFFFF)                # Map16 high byte.
     save_mem = (0x700000, 0x7007FF)                # Original save memory (2 kB big). Not everything is used
+    bwram_list = [map16_lo_by, map16_hi_by, save_mem]
     tot_conversions = 0
     whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
@@ -129,24 +130,20 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                     outlines[index-1] += (spaces[n_word] + og_word)
                     continue
                 # check if it's a dumb bwram remapped address
-                bwram_word = word if len(word) == 6 else '7E'+word
-                bwram_word_int = int(bwram_word, 16)
-                if map16_lo_by[0] <= bwram_word_int <= map16_lo_by[1]:
+                bwram_word = int(word, 16) if len(word) == 6 else int('7E'+word, 16)
+                if any(baddr[0] <= bwram_word <= baddr[1] for baddr in bwram_list):
+                    subs = [f'${bwram_word:6X}&$00FFFF|!map16_lo_by', f'${bwram_word:6X}&$00FFFF|!map16_hi_by',
+                            f'${bwram_word:6X}&$00FFFF|!map16_hi_by']
                     converted = True
                     bwram_define_needed = True
-                    word = f'${bwram_word}&$00FFFF|!map16_lo_by'
-                elif map16_hi_by[0] <= bwram_word_int <= map16_hi_by[1]:
+                    for i in range(3):
+                        if bwram_list[i][0] <= bwram_word <= bwram_list[i][1]:
+                            word = subs[i]
+                            break
+                elif bwram_word in bwram_remapped_list:
                     converted = True
                     bwram_define_needed = True
-                    word = f'${bwram_word}&$00FFFF|!map16_hi_by'
-                elif save_mem[0] <= bwram_word_int <= save_mem[1]:
-                    converted = True
-                    bwram_define_needed = True
-                    word = f'${bwram_word}&$000FFF|!save_mem'
-                elif bwram_word_int in bwram_remapped_list:
-                    converted = True
-                    bwram_define_needed = True
-                    word = '!' + bwram_word
+                    word = f'!{bwram_word:6X}'
                 elif int(word, 16) in special_addr_list:  # if special address, use define
                     converted = True
                     word = '!' + (f'{int(word, 16):X}' if not add_dp else f'{int(word, 16):X}|!dp')
