@@ -15,8 +15,6 @@ endmacro
 %define_bwram(7FC800, 41C800) ; ends at 7FFFFF
 """
 
-# TODO : Finish fixing the goddamn parenthesis, also shit with |!dp and stuff
-
 
 def convert(asmfile, opt, verbose, stdout) -> None:
     encoding = 'utf-8'
