@@ -68,20 +68,22 @@ def convert(asmfile, opt, verbose, stdout) -> None:
     whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
         outlines.append('')
+        data_types = ['db', 'dw', 'dl', 'dd']
         in_comment = False
         in_data = False
-        words = re.split(r'( \t)', line.rstrip())
+        words = re.split(r'([ \t])', line.rstrip())
         if line.strip() == '' or line.lstrip().startswith(';'):
             # shortcuts for comments and blank lines
             outlines[index-1] = line.rstrip()
             continue
         for og_word in words:
+            stripped_word = og_word.strip()
             to_insert = ''
             if in_comment or in_data:
                 pass
-            elif og_word.startswith(';'):
+            elif stripped_word.startswith(';'):
                 in_comment = True
-            elif og_word.startswith('db') or og_word.startswith('dw') or og_word.startswith('dl'):
+            elif any([stripped_word.startswith(a) for a in data_types]):
                 in_data = True
             elif addr := re.findall(r'\$.{1,6}[|]!?.+\b', og_word):
                 stdout.write(bytes(f'Possibly address {addr[0]} at line {index} was already hybrid.\n',
@@ -175,8 +177,10 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
         word = f'!{bwram_word:6X}'
     elif int(word, 16) in special_addr_list:  # if special address, use define
         word = '!' + (f'{int(word, 16):X}' if not add_dp else f'{int(word, 16):X}|!dp')
-    elif len(word) == 6 and (0x008000 <= int(word, 16) <= 0x0FFFFF):  # if rom, add !bank
+    elif len(word) == 6 and (0x000000 <= int(word, 16) <= 0x0FFFFF):  # if rom, add !bank
         word = '$' + word + '|!bank'
+    elif len(word) == 6 and (0x7E0000 <= int(word, 16) <= 0x7E1FFF):
+        word = f'(${word}&$FFFF)|!bankA'
     elif len(word) == 2:  # if direct page, ignore
         converted = False
         word = '$' + word
@@ -186,6 +190,7 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
         word = '$' + word + '|!dp'
     else:  # if out of range, ignore
         converted = False
+        word = '$' + word
         if len(word) == 4:
             stdout.write(bytes(f'Warning: address ${int(word, 16):04X} at line {index} '
                                f'couldn\'t be converted!\n', encoding=encoding))
