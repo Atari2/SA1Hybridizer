@@ -1,8 +1,7 @@
 import re
 from chardet.universaldetector import UniversalDetector
 
-bwram_defines = """
-macro define_bwram(addr, bwram)
+bwram_defines = """macro define_bwram(addr, bwram)
     if read1($00FFD5) == $23
         !<addr> = $<bwram>
     else
@@ -36,7 +35,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 break
         detector.close()
         encod = detector.result
-        if encod['confidence'] > 0.5:
+        if encod['confidence'] >= 0.5:
             encoding = encod['encoding']
         else:
             encoding = 'SHIFT_JIS'      # if confidence is low, try japanese
@@ -99,7 +98,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 stdout.write(bytes(f'Possibly address {og_word} at line {index} was already hybrid.\n',
                              encoding=encoding))
             elif not in_comment and not in_data and re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
-                splitted = re.split(r'([\[\](),])', og_word)
+                splitted = re.split(r'([\[\](),!|+\-^*~])', og_word)
                 addr_index = -1
                 comma_index = -1
                 add_dp = False
