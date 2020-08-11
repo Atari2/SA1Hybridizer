@@ -84,7 +84,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 in_comment = True
             elif any([stripped_word.startswith(a) for a in data_types]):
                 in_data = True
-            elif addr := re.findall(r'\$.{1,6}[|]!?[^$1-9]+\b', og_word):
+            elif addr := re.findall(r'\$.{1,6}[|]![^$1-9]+\b', og_word):
                 stdout.write(bytes(f'Possibly address {addr[0]} at line {index} was already hybrid.\n',
                              encoding=encoding))
             elif re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
