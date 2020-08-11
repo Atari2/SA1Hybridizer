@@ -1,6 +1,6 @@
 dist
 build
-result.log
+results.log
 main.spec
 .idea
 __pycache__
