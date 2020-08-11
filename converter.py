@@ -65,7 +65,6 @@ def convert(asmfile, opt, verbose, stdout) -> None:
     if opt:
         outfile.write('incsrc conv_defines.asm\n')
     tot_conversions = 0
-    whole_file = '\n'.join(text)
     for index, line in enumerate(text, start=1):
         outlines.append('')
         data_types = ['db', 'dw', 'dl', 'dd']
@@ -155,7 +154,7 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
     if comma_index != -1:
         if len(word) == 4 and (splitted[comma_index+1] == 'y' or splitted[comma_index+1] == 'x') \
                 and word[:2] == '00':
-            add_dp = True
+            add_dp = True           # preserve absolute addressing when used for some weird reason
     if word.startswith('8') and len(word) == 6:
         word = word.replace('8', '0', 1)
     try:
