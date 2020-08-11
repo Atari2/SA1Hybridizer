@@ -1,7 +1,7 @@
 dist
 build
 results.log
-main.spec
+sa1hybridizer.spec
 .idea
 __pycache__
 *.asm
