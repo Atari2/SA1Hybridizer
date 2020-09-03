@@ -1,31 +1,22 @@
-import sys
 import converter
 import zipfile
 import glob
 import io
+import argparse
 
-print('This tool assumes that whatever is being converted is gonna use the standard defines (Pixi, GPS, UberasmTool)\n'
-      'If that\'s not the case, you can run this on command line adding "--def" before the filename and then using '
-      '"conv_defines.asm" with the converted file.\nThis tool can convert also zip files, it will unzip and attempt '
-      'to convert every .asm file that it finds in that folder.\nSince the output is extremely verbose, it is '
-      'recommended to use single files only.\nAlternatively, you can use --silence in the command line to silence all '
-      'outputs.')
-opt = False
-verbose = True
-if len(sys.argv) == 2:
-    asmfile = sys.argv[1]
-elif len(sys.argv) == 3:
-    opt = True if sys.argv[1] == '--def' else False
-    verbose = False if sys.argv[1] == '--silence' else True
-    asmfile = sys.argv[2]
-elif len(sys.argv) == 4:
-    if any(arg == '--def' for arg in sys.argv):
-        opt = True
-    if any(arg == '--silence' for arg in sys.argv):
-        verbose = False
-    asmfile = sys.argv[3]
-else:
-    asmfile = input('Insert the name of the file you wish to convert:\n')
+parser = argparse.ArgumentParser(description='This tool by default assumes that the file being converted is gonna use\
+                                              the standard Pixi defines',
+                                 epilog='This tool can also convert zip files, converting every asm files that it finds\
+                                         inside them. However since the output is extremely verbose, it\'s recommended\
+                                         to add the silence option when working with zips')
+parser.add_argument("-d", "--defines", help="Adds the defines at the top of the converted patch", action="store_true")
+parser.add_argument("-s", "--silence", help="Removes all verbosity from output", action="store_true")
+parser.add_argument("-f", "--asmfile", help="The name of the asm file you're converting", default=None)
+args = parser.parse_args()
+parser.print_help()
+opt = args.defines
+verbose = not args.silence
+asmfile = args.asmfile or input('Insert the name of the file you wish to convert:\n')
 
 stdout = open('results.log', 'wb') if verbose else io.BytesIO()
 
