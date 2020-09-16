@@ -75,6 +75,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             # shortcuts for comments and blank lines
             outlines[index-1] = line.rstrip()
             continue
+        ignore_next_address = False
         for og_word in words:
             stripped_word = og_word.strip()
             to_insert = ''
@@ -84,35 +85,41 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 in_comment = True
             elif any([stripped_word.startswith(a) for a in data_types]):
                 in_data = True
+            elif stripped_word.startswith('PEA') or stripped_word.startswith('PER'):
+                ignore_next_address = True
             elif addr := re.findall(r'\$.{1,6}[|]![^$1-9]+\b', og_word):
                 stdout.write(bytes(f'Possibly address {addr[0]} at line {index} was already hybrid.\n',
                              encoding=encoding))
             elif re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
+                if ignore_next_address:
+                    ignore_next_address = False
+                    outlines[index-1] += og_word
+                    continue
                 splitted = re.split(r'([\[\](), ])', og_word)
-                words = []
+                word_tuples = []
                 for i, word in enumerate(splitted):
                     if word.startswith('$'):
                         try:
                             proc_word = eval(word.replace('$', '0x'))
                             expr = re.split(r'[+\\\-^*~<>|]', word.replace('$', ''))    # +\-^*~<>  some asar math ops
                             word = '${:0{}X}'.format(proc_word, max([len(e) for e in expr]))
-                            words.append((WordType.ADDR, word, i))
+                            word_tuples.append((WordType.ADDR, word, i))
                         except SyntaxError:
                             bunch = re.split(r'([+\-^*~<>| ])', word)
                             for w in bunch:
                                 if w.startswith('$'):
-                                    words.append((WordType.ADDR, w, i))
+                                    word_tuples.append((WordType.ADDR, w, i))
                                 else:
-                                    words.append((WordType.OTHER, w, i))
+                                    word_tuples.append((WordType.OTHER, w, i))
                     elif word.startswith(','):
-                        words.append((WordType.COMMA, word, i))
+                        word_tuples.append((WordType.COMMA, word, i))
                     else:
-                        words.append((WordType.OTHER, word, i))
-                for wordtype, word, i in words:
+                        word_tuples.append((WordType.OTHER, word, i))
+                for wordtype, word, i in word_tuples:
                     if wordtype == WordType.ADDR:
                         try:
                             try:
-                                comma_index = i+1 if words[i+1][0] == WordType.COMMA else -1
+                                comma_index = i+1 if word_tuples[i+1][0] == WordType.COMMA else -1
                             except IndexError:
                                 comma_index = -1
                             ww, bwram_define_needed, converted = process_word(word.replace('$', ''), stdout, encoding,
