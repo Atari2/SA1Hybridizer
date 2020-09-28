@@ -70,7 +70,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
         data_types = ['db', 'dw', 'dl', 'dd']
         in_comment = False
         in_data = False
-        words = re.split(r'([ \t])', line.rstrip())
+        words = re.split(r'([ \t;])', line.rstrip())
         if line.strip() == '' or line.lstrip().startswith(';'):
             # shortcuts for comments and blank lines
             outlines[index-1] = line.rstrip()
