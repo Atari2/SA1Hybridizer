@@ -30,19 +30,19 @@ macro define_base2_address(name, addr)
 	endif
 endmacro
 ;sprite tool / pixi defines
-%define_sprite_table("7FAB10",$7FAB10,$400040)
-%define_sprite_table("7FAB1C",$7FAB1C,$400056)
-%define_sprite_table("7FAB28",$7FAB28,$400057)
-%define_sprite_table("7FAB34",$7FAB34,$40006D)
-%define_sprite_table("7FAB9E",$7FAB9E,$400083)
-%define_sprite_table("7FAB40",$7FAB40,$400099)
-%define_sprite_table("7FAB4C",$7FAB4C,$4000AF)
-%define_sprite_table("7FAB58",$7FAB58,$4000C5)
-%define_sprite_table("7FAB64",$7FAB64,$4000DB)
+%define_sprite_table("7FAB10",$7FAB10,$6040)
+%define_sprite_table("7FAB1C",$7FAB1C,$6056)
+%define_sprite_table("7FAB28",$7FAB28,$6057)
+%define_sprite_table("7FAB34",$7FAB34,$606D)
+%define_sprite_table("7FAB9E",$7FAB9E,$6083)
+%define_sprite_table("7FAB40",$7FAB40,$6099)
+%define_sprite_table("7FAB4C",$7FAB4C,$60AF)
+%define_sprite_table("7FAB58",$7FAB58,$60C5)
+%define_sprite_table("7FAB64",$7FAB64,$60DB)
 
-%define_sprite_table("7FAC00",$7FAC00,$4000F1)
-%define_sprite_table("7FAC08",$7FAC08,$400030)
-%define_sprite_table("7FAC10",$7FAC10,$400038)
+%define_sprite_table("7FAC00",$7FAC00,$60F1)
+%define_sprite_table("7FAC08",$7FAC08,$6030)
+%define_sprite_table("7FAC10",$7FAC10,$6038)
 
 ;normal sprite defines
 
