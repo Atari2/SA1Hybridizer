@@ -4,7 +4,7 @@ if read1($00FFD5) == $23		; check if the rom is sa-1
 	!dp = $3000
 	!addr = $6000
 	!bank = $000000
-	!bankA = $4000000
+	!bankA = $400000
 else
 	lorom
 	!SA1 = 0
