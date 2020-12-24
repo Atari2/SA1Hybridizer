@@ -87,7 +87,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 in_data = True
             elif stripped_word.startswith('PEA') or stripped_word.startswith('PER'):
                 ignore_next_address = True
-            elif addr := re.findall(r'\$.{1,6}[|]![^$1-9]+\b', og_word):
+            elif addr := re.findall(r'\$[\da-fA-F]{1,6}\|!\D[^$]+\b', og_word):
                 stdout.write(bytes(f'Possibly address {addr[0]} at line {index} was already hybrid.\n',
                              encoding=encoding))
             elif re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
