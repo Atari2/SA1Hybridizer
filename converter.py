@@ -32,6 +32,7 @@ class WordType(IntEnum):
 
 def convert(asmfile, opt, verbose, stdout) -> None:
     encoding = 'utf-8'
+    requires_manual_conversion = False
     try:
         with open(asmfile, 'r') as f:
             text = f.readlines()
@@ -70,9 +71,14 @@ def convert(asmfile, opt, verbose, stdout) -> None:
         data_types = ['db', 'dw', 'dl', 'dd']
         in_comment = False
         in_data = False
+        define_found = re.findall(r'![A-Za-z\d_]+ += \$[\dA-Fa-f]{3,6}\S*', line.strip())
         words = re.split(r'([ \t;])', line.rstrip())
-        if line.strip() == '' or line.lstrip().startswith(';'):
-            # shortcuts for comments and blank lines
+        if line.strip() == '' or line.lstrip().startswith(';') or define_found:
+            # shortcuts for comments and blank lines and defines
+            if define_found:
+                requires_manual_conversion = True
+                stdout.write(bytes(f'There is define {define_found[0]} at line {index}'
+                                   f', make sure to convert it manually if needed.\n', encoding=encoding))
             outlines[index-1] = line.rstrip()
             continue
         ignore_next_address = False
@@ -87,7 +93,7 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                 in_data = True
             elif stripped_word.startswith('PEA') or stripped_word.startswith('PER'):
                 ignore_next_address = True
-            elif addr := re.findall(r'\$[\da-fA-F]{1,6}\|!\D[^$]+\b', og_word):
+            elif addr := re.findall(r'\$[\da-fA-F]{1,6}\|![a-zA-Z\d_]+\b', og_word):
                 stdout.write(bytes(f'Possibly address {addr[0]} at line {index} was already hybrid.\n',
                              encoding=encoding))
             elif re.findall(r'\$[^, \n()\[\]]{1,6}', og_word):
@@ -122,8 +128,12 @@ def convert(asmfile, opt, verbose, stdout) -> None:
                                 comma_index = i+1 if word_tuples[i+1][0] == WordType.COMMA else -1
                             except IndexError:
                                 comma_index = -1
-                            ww, bwram_define_needed, converted = process_word(word.replace('$', ''), stdout, encoding,
-                                                                              index, splitted, comma_index)
+                            ww, bwram_define_needed, converted, manual_conversion = process_word(word.replace('$', ''),
+                                                                                                 stdout, encoding,
+                                                                                                 index, splitted,
+                                                                                                 comma_index)
+                            if manual_conversion:
+                                requires_manual_conversion = True
                             if converted:
                                 tot_conversions += 1
                                 stdout.write(bytes(f'Conversion: {word} -> {ww}\n', encoding=encoding))
@@ -136,15 +146,17 @@ def convert(asmfile, opt, verbose, stdout) -> None:
             outlines[index-1] += to_insert if to_insert != '' else og_word
     if any(bw_defs):
         outfile.write(bwram_defines)
-    # outlines = list(filter(lambda a: a != '', outlines))
     outfile.write('\n'.join(outlines))
     outfile.close()
     if verbose:
         print(f'Processed file {asmfile}\nTotal conversions: {tot_conversions}')
+        if requires_manual_conversion:
+            print(f'File {asmfile} could require manual conversion for some addresses, please check the log file.\n')
     stdout.write(bytes(f'Processed file {asmfile}\nTotal conversions: {tot_conversions}\n\n\n', encoding=encoding))
 
 
 def process_word(word, stdout, encoding, index, splitted, comma_index):
+    requires_manual_conversion = False
     converted = True
     bwram_define_needed = False
     add_dp = False
@@ -196,6 +208,7 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
         word = '$' + word + '|!dp'
     else:  # if out of range, ignore
         converted = False
+        requires_manual_conversion = True
         word = '$' + word
         if len(word) == 4:
             stdout.write(bytes(f'Warning: address ${int(word, 16):04X} at line {index} '
@@ -206,4 +219,4 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
         else:
             stdout.write(bytes(f'Warning: address ${int(word, 16):X} at line {index} '
                                f'couldn\'t be converted!\n', encoding=encoding))
-    return word, bwram_define_needed, converted
+    return word, bwram_define_needed, converted, requires_manual_conversion
