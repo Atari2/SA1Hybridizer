@@ -22,6 +22,11 @@ else
     !save_mem = $700000
 endif
 """
+special_addr_list = [8366864, 8366876, 8366888, 8366900, 8367006, 8366912, 8366924, 8366936, 8366948, 8367104,
+                     8367112, 8367120, 158, 170, 182, 194, 216, 228, 5320, 5332, 5344, 5356, 5368, 5380, 5392, 5404,
+                     5416, 5428, 5440, 5452, 5464, 5476, 5488, 5500, 5512, 5524, 5536, 5548, 5560, 5572, 5584, 5596,
+                     5610, 5622, 5634, 5646, 5658, 5670, 5682, 5694, 5706, 5718, 5730, 5742, 5754, 5766, 6252, 6267,
+                     6415, 6456, 8367872, 8150, 8162]
 
 
 class WordType(IntEnum):
@@ -71,14 +76,31 @@ def convert(asmfile, opt, verbose, stdout) -> None:
         data_types = ['db', 'dw', 'dl', 'dd']
         in_comment = False
         in_data = False
-        define_found = re.findall(r'![A-Za-z\d_]+ += \$[\dA-Fa-f]{3,6}\S*', line.strip())
+        define_found = re.match(r'![A-Za-z\d_]+\s+=\s+((\$)?[\dA-Fa-f]{2,6})\S*', line.strip())
         words = re.split(r'([ \t;])', line.rstrip())
         if line.strip() == '' or line.lstrip().startswith(';') or define_found:
             # shortcuts for comments and blank lines and defines
             if define_found:
                 requires_manual_conversion = True
-                stdout.write(bytes(f'There is define {define_found[0]} at line {index}'
-                                   f', make sure to convert it manually if needed.\n', encoding=encoding))
+                is_hex = define_found.group(2) is not None
+                if int(define_found.group(1).replace('$', '0x') if is_hex else define_found.group(1),
+                       16 if is_hex else 10) == 12:
+                    stdout.write(bytes(f'There is define {define_found.group(0)} at line {index} which is equal to 12,'
+                                       f' this might be a define related to how many sprites can be loaded by the game'
+                                       f' if so, change it to 22 or $16, or (even better) use the following\n'
+                                       f'\tif read1($00FFD5) == $23\n\t\t{define_found.group(0)}\n\telse\n\t\t'
+                                       f'{define_found.group(0).split("=")[0]}= {"$16" if is_hex else "22"}\n\tendif\n',
+                                       encoding=encoding))
+                elif int(define_found.group(1).replace('$', '0x'), 16) in special_addr_list and is_hex:
+                    stdout.write(bytes(f'There is define {define_found.group(0)} at line {index} which is a sprite '
+                                       f'address, usually replacing the $ with ! works in most tools, it didn\'t get '
+                                       f'converted automatically because it might not be necessary to do so, make sure '
+                                       f'to convert manually it ONLY if needed.\n', encoding=encoding))
+                elif 0x0100 <= int(define_found.group(1).replace('$', '0x') if is_hex else define_found.group(1),
+                                   16 if is_hex else 10) <= 0x1FFF:
+                    stdout.write(bytes(f'There is define {define_found.group(0)} at line {index} which might be a ram'
+                                       f' address, if it is, convert it by adding |!addr at the end of it, if it\'s not'
+                                       f' a ram address leave it alone\n', encoding=encoding))
             outlines[index-1] = line.rstrip()
             continue
         ignore_next_address = False
@@ -160,11 +182,6 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
     converted = True
     bwram_define_needed = False
     add_dp = False
-    special_addr_list = [8366864, 8366876, 8366888, 8366900, 8367006, 8366912, 8366924, 8366936, 8366948, 8367104,
-                         8367112, 8367120, 158, 170, 182, 194, 216, 228, 5320, 5332, 5344, 5356, 5368, 5380, 5392, 5404,
-                         5416, 5428, 5440, 5452, 5464, 5476, 5488, 5500, 5512, 5524, 5536, 5548, 5560, 5572, 5584, 5596,
-                         5610, 5622, 5634, 5646, 5658, 5670, 5682, 5694, 5706, 5718, 5730, 5742, 5754, 5766, 6252, 6267,
-                         6415, 6456, 8367872, 8150, 8162]
     bwram_remapped_list = [0x7F9A7B, 0x7027FF]          # Wiggler's segment buffer, Expansion area planned for SMW hacks
     map16_lo_by = (0x7EC800, 0x7EFFFF)                # Map16 low byte plus Overworld related data.
     map16_hi_by = (0x7FC800, 0x7FFFFF)                # Map16 high byte.
