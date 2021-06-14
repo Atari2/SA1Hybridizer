@@ -201,7 +201,7 @@ def process_word(word, stdout, encoding, index, splitted, comma_index):
     bwram_word = int(word, 16) if len(word) == 6 else int('7E' + word, 16)
     if any(baddr[0] <= bwram_word <= baddr[1] for baddr in bwram_list):
         subs = [f'${bwram_word:6X}&$00FFFF|!map16_lo_by', f'${bwram_word:6X}&$00FFFF|!map16_hi_by',
-                f'${bwram_word:6X}&$00FFFF|!map16_hi_by']
+                f'${bwram_word:6X}&$00FFFF|!save_mem']
         bwram_define_needed = True
         for i in range(3):
             if bwram_list[i][0] <= bwram_word <= bwram_list[i][1]:
