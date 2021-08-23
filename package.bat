@@ -1,6 +1,6 @@
 py -m pip install --upgrade pip
 py -m pip install -r requirements.txt
-pyinstaller.exe --clean --onefile --noupx sa1hybridizer.py
+pyinstaller --clean --onefile --noupx sa1hybridizer.py
 copy conv_defines.asm dist\conv_defines.asm
 copy convert_main.py dist\convert_main.py
 copy converter.py dist\converter.py
