@@ -6,3 +6,4 @@ sa1hybridizer.spec
 __pycache__
 *.asm
 !conv_defines.asm
+sa1hybridizer.spec
