@@ -1,5 +1,5 @@
 py -m pip install --upgrade pip
-py -m pip install -r requirements.txt *> where_installed.txt
+py -m pip install -r requirements.txt 3>&1 2>&1 > where_installed.txt
 $pyinstaller_loc = Select-String -Path where_installed.txt -Pattern "are installed in '(.+)'" -AllMatches | ForEach-Object {$_.Matches[0].Groups[1].Value}
 $pyinstaller_loc = $pyinstaller_loc + "\pyinstaller.exe"
 Invoke-Expression "$pyinstaller_loc --clean --onefile --noupx sa1hybridizer.py"
