@@ -18,7 +18,7 @@ jobs:
         shell: powershell
       
       - name: Upload
-        uses: actions/upload-artifacts@v2
+        uses: actions/upload-artifact@v2
         with:
           name: SA1Hybridizer
           path: ${{github.workspace}}/SA1Hybridizer.zip
