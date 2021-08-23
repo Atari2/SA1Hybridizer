@@ -1,0 +1,24 @@
+name: Build
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+    
+jobs:
+
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup environment, build and package
+        run: ${{github.workspace}}/package.bat
+        shell: powershell
+      
+      - name: Upload
+        uses: actions/upload-artifacts@v2
+        with:
+          name: SA1Hybridizer
+          path: ${{github.workspace}}/SA1Hybridizer.zip
